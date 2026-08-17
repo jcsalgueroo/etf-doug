@@ -79,6 +79,7 @@ function Index() {
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Input
             type="text"
+            name="ticker"
             placeholder="Enter competitor ticker (e.g. VTI)"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
