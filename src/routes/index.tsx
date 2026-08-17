@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { searchEtf, type SearchEtfResult } from "@/lib/etf.functions";
+import { searchEtf, type SearchEtfResult, type CompetitorEtf } from "@/lib/etf.functions";
 
 interface SearchParams {
   ticker?: string;
@@ -20,8 +20,8 @@ interface SearchParams {
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): SearchParams => {
-    const ticker = typeof search.ticker === "string" ? search.ticker : undefined;
-    return { ticker };
+    const ticker = typeof search["ticker"] === "string" ? search["ticker"] : undefined;
+    return ticker ? { ticker } : {};
   },
   head: () => ({
     meta: [
@@ -42,10 +42,10 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  loader: async ({ search: { ticker } }) => {
-    const trimmed = ticker?.trim();
-    if (!trimmed) return null;
-    return searchEtf({ data: { ticker: trimmed } });
+  loaderDeps: ({ search: { ticker } }) => ({ ticker: ticker?.trim() }),
+  loader: async ({ deps: { ticker } }) => {
+    if (!ticker) return null;
+    return searchEtf({ data: { ticker } });
   },
   component: Index,
 });
@@ -53,14 +53,20 @@ export const Route = createFileRoute("/")({
 function Index() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
-  const initialResult = Route.useLoaderData<SearchEtfResult | null>();
+  const initialResult = Route.useLoaderData();
   const [inputValue, setInputValue] = useState(search.ticker ?? "");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const ticker = inputValue.trim();
     navigate({
-      search: (prev) => ({ ...prev, ticker: ticker || undefined }),
+      search: (prev) => {
+        if (!ticker) {
+          const { ticker: _, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, ticker };
+      },
     });
   };
 
@@ -123,11 +129,7 @@ function SearchResult({ result }: { result: SearchEtfResult }) {
   );
 }
 
-function ProfileCard({
-  etf,
-}: {
-  etf: SearchEtfResult extends { type: "competitor"; etf: infer E } ? E : never;
-}) {
+function ProfileCard({ etf }: { etf: CompetitorEtf }) {
   const formattedAum =
     etf.aum != null
       ? new Intl.NumberFormat("en-US", {

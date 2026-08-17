@@ -18,10 +18,12 @@ type EtfSearchRow = Pick<
   | "is_ishares"
 >;
 
+export type CompetitorEtf = Omit<EtfSearchRow, "is_ishares">;
+
 export type SearchEtfResult =
   | { type: "not_found"; ticker: string }
   | { type: "ishares"; ticker: string }
-  | { type: "competitor"; etf: Omit<EtfSearchRow, "is_ishares"> };
+  | { type: "competitor"; etf: CompetitorEtf };
 
 export const searchEtf = createServerFn({ method: "GET" })
   .inputValidator((data) => z.object({ ticker: z.string() }).parse(data))
@@ -64,7 +66,7 @@ export const searchEtf = createServerFn({ method: "GET" })
       return { type: "ishares", ticker: normalizedTicker };
     }
 
-    const competitor = rows.find((row) => !row.is_ishares) ?? rows[0];
+    const competitor = rows.find((row) => !row.is_ishares) ?? rows[0]!;
     const { is_ishares: _, ...etf } = competitor;
     return { type: "competitor", etf };
   });
