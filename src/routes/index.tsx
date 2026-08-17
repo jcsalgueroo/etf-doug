@@ -52,21 +52,17 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const search = Route.useSearch();
-  const navigate = useNavigate({ from: Route.fullPath });
+  const navigate = useNavigate({ from: "/" });
   const initialResult = Route.useLoaderData();
   const [inputValue, setInputValue] = useState(search.ticker ?? "");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const ticker = inputValue.trim();
+    const formData = new FormData(e.currentTarget);
+    const ticker = (formData.get("ticker") as string | null)?.trim() ?? "";
     navigate({
-      search: (prev) => {
-        if (!ticker) {
-          const { ticker: _, ...rest } = prev;
-          return rest;
-        }
-        return { ...prev, ticker };
-      },
+      to: "/",
+      search: (prev) => (ticker ? { ...prev, ticker } : { ...prev }),
     });
   };
 
