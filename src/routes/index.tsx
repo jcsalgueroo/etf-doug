@@ -56,6 +56,10 @@ function Index() {
   const initialResult = Route.useLoaderData();
   const [inputValue, setInputValue] = useState(search.ticker ?? "");
 
+  useEffect(() => {
+    setInputValue(search.ticker ?? "");
+  }, [search.ticker]);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
