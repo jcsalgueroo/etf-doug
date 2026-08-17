@@ -26,7 +26,7 @@ export type SearchEtfResult =
   | { type: "competitor"; etf: CompetitorEtf };
 
 export const searchEtf = createServerFn({ method: "GET" })
-  .inputValidator((data) => z.object({ ticker: z.string() }).parse(data))
+  .validator((data) => z.object({ ticker: z.string() }).parse(data))
   .handler(async ({ data }): Promise<SearchEtfResult> => {
     const normalizedTicker = data.ticker.trim().toUpperCase();
     if (!normalizedTicker) {
