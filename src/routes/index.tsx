@@ -149,7 +149,7 @@ function Index() {
                 role="listbox"
                 className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-md"
               >
-                {suggestions.map((s) => (
+                {suggestions.map((s: TickerSuggestion) => (
                   <li key={s.ticker}>
                     <button
                       type="button"
