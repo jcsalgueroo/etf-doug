@@ -478,6 +478,7 @@ function RecommendedSubstitute({ source }: { source: CompetitorEtf }) {
                   intended matching model — index-holdings comparison requires data
                   not yet available in this database.
                 </div>
+                <ExplainPanel isin={source.isin} />
               </section>
             )}
 
