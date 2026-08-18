@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,7 @@ import {
   findSubstitutes,
   type SubstituteCandidate,
 } from "@/lib/substitutes.functions";
+import { explainRecommendation } from "@/lib/explain.functions";
 
 
 interface SearchParams {
@@ -477,6 +478,7 @@ function RecommendedSubstitute({ source }: { source: CompetitorEtf }) {
                   intended matching model — index-holdings comparison requires data
                   not yet available in this database.
                 </div>
+                <ExplainPanel isin={source.isin} />
               </section>
             )}
 
@@ -524,3 +526,110 @@ function RecommendedSubstitute({ source }: { source: CompetitorEtf }) {
 }
 
 
+
+// Secondary, clearly-labeled explanation panels. These are NEVER presented as
+// more authoritative than the deterministic score above.
+function ExplainText({ text }: { text: string }) {
+  return (
+    <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+      {text}
+    </div>
+  );
+}
+
+function ExplainPanel({ isin }: { isin: string }) {
+  const call = useServerFn(explainRecommendation);
+  const { mutate, data, isPending, error } = useMutation({
+    mutationFn: () => call({ data: { isin } }),
+  });
+
+  return (
+    <div className="space-y-4">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => mutate()}
+        disabled={isPending}
+      >
+        {isPending ? "Generating explanation…" : "Explain this recommendation"}
+      </Button>
+
+      {isPending && (
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+      )}
+
+      {error && (
+        <Alert>
+          <AlertTitle>Explanation failed</AlertTitle>
+          <AlertDescription>{(error as Error).message}</AlertDescription>
+        </Alert>
+      )}
+
+      {data && (
+        <div className="space-y-4">
+          {/* PART 1 — grounded in the approved database payload only. */}
+          <section className="rounded-md border border-border bg-muted/30 p-4">
+            <h3 className="text-sm font-semibold text-foreground">
+              Recommendation rationale
+            </h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Secondary commentary generated only from the stored data and scores
+              above. It does not change or override the deterministic score.
+            </p>
+            {data.rationale ? (
+              <ExplainText text={data.rationale} />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                {data.rationale_error ?? "No rationale was returned."}
+              </p>
+            )}
+          </section>
+
+          {/* PART 2 — LIVE web research. Different (lower) trust tier. */}
+          <section className="rounded-md border-2 border-dashed border-amber-500/70 bg-amber-50/60 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+              <span aria-hidden="true">⚠</span>
+              Live holdings comparison (real-time lookup, not from the approved
+              database)
+            </h3>
+            <p className="mb-3 text-xs text-amber-900/80">
+              Different trust tier: this section comes from a live web lookup, not
+              from approved structured data. Holdings data does not exist in the
+              database yet. Verify before using with clients.
+            </p>
+            {data.live_holdings ? (
+              <ExplainText text={data.live_holdings} />
+            ) : (
+              <p className="text-sm text-amber-900">
+                {data.live_error ?? "The live lookup returned nothing usable."}
+              </p>
+            )}
+            {data.live_sources.length > 0 && (
+              <div className="mt-3">
+                <p className="text-xs font-medium text-amber-900">Sources used</p>
+                <ul className="mt-1 space-y-1 text-xs">
+                  {data.live_sources.map((s) => (
+                    <li key={s.url}>
+                      <a
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-amber-900 underline underline-offset-2"
+                      >
+                        {s.title || s.url}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
