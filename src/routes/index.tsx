@@ -125,10 +125,11 @@ function SearchResult({ result }: { result: SearchEtfResult }) {
   return (
     <div className="space-y-6">
       <ProfileCard etf={result.etf} />
-      <RecommendedSubstitute />
+      <RecommendedSubstitute isin={result.etf.isin} />
     </div>
   );
 }
+
 
 function ProfileCard({ etf }: { etf: CompetitorEtf }) {
   const formattedAum =
