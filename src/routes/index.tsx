@@ -199,6 +199,139 @@ function pct(value: number) {
   return value.toFixed(2);
 }
 
+const SKIPPED_CHECK_LABELS: Record<string, string> = {
+  currency_hedge_match: "Currency-hedge status was not compared",
+  distribution_policy_match:
+    "Distribution policy (accumulating vs. distributing) was not compared",
+  active_passive_match: "Active vs. passive management style was not compared",
+  esg_thematic_mandate_match: "ESG / thematic mandate was not compared",
+  fixed_income_duration_credit_compatibility:
+    "Fixed-income duration and credit compatibility were not compared",
+};
+
+function NotAvailable() {
+  return <span className="text-muted-foreground italic">Not available</span>;
+}
+
+function abbreviateUsd(value: number) {
+  const abs = Math.abs(value);
+  const units: Array<[number, string]> = [
+    [1e12, "T"],
+    [1e9, "B"],
+    [1e6, "M"],
+    [1e3, "K"],
+  ];
+  for (const [size, suffix] of units) {
+    if (abs >= size) {
+      return `$${(value / size).toFixed(2).replace(/\.?0+$/, "")}${suffix}`;
+    }
+  }
+  return `$${value.toFixed(0)}`;
+}
+
+function abbreviateRaw(value: number) {
+  const abs = Math.abs(value);
+  const units: Array<[number, string]> = [
+    [1e12, "T"],
+    [1e9, "B"],
+    [1e6, "M"],
+    [1e3, "K"],
+  ];
+  for (const [size, suffix] of units) {
+    if (abs >= size) {
+      return `${(value / size).toFixed(2).replace(/\.?0+$/, "")}${suffix}`;
+    }
+  }
+  return value.toFixed(0);
+}
+
+// No FX conversion exists, so non-USD AUM keeps its own currency code.
+function formatAum(aum: number | null, currency: string | null) {
+  if (aum == null) return null;
+  const code = (currency || "USD").toUpperCase();
+  if (code === "USD") return abbreviateUsd(aum);
+  return `${code} ${abbreviateRaw(aum)}`;
+}
+
+function cell(value: string | number | null | undefined) {
+  if (value == null || value === "") return <NotAvailable />;
+  return <>{value}</>;
+}
+
+function ComparisonTable({
+  source,
+  candidate,
+}: {
+  source: CompetitorEtf;
+  candidate: SubstituteCandidate;
+}) {
+  const rows: Array<[string, React.ReactNode, React.ReactNode]> = [
+    ["Fund name", cell(source.fund_name), cell(candidate.fund_name)],
+    ["Issuer", cell(source.issuer), cell(candidate.issuer)],
+    ["Domicile", cell(source.domicile), cell(candidate.domicile)],
+    ["Legal wrapper", cell(source.legal_wrapper), cell(candidate.legal_wrapper)],
+    [
+      "Trading currency",
+      cell(source.trading_currency),
+      cell(candidate.trading_currency),
+    ],
+    ["Asset class", cell(source.asset_class), cell(candidate.asset_class)],
+    [
+      "Management fee",
+      cell(source.management_fee_bps != null ? `${source.management_fee_bps} bps` : null),
+      cell(
+        candidate.management_fee_bps != null
+          ? `${candidate.management_fee_bps} bps`
+          : null,
+      ),
+    ],
+    [
+      "AUM",
+      cell(formatAum(source.aum, source.aum_currency)),
+      cell(formatAum(candidate.aum, candidate.aum_currency)),
+    ],
+    ["AUM as of", cell(source.aum_as_of_date), cell(candidate.aum_as_of_date)],
+  ];
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <caption className="sr-only">
+          Field-by-field comparison of the source ETF and the recommended iShares
+          substitute
+        </caption>
+        <thead>
+          <tr className="border-b border-border text-left">
+            <th scope="col" className="py-2 pr-4 font-medium text-muted-foreground">
+              Field
+            </th>
+            <th scope="col" className="py-2 pr-4 font-medium text-foreground">
+              {source.ticker} (source)
+            </th>
+            <th scope="col" className="py-2 font-medium text-foreground">
+              {candidate.ticker} (recommended)
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, left, right]) => (
+            <tr key={label} className="border-b border-border/60 last:border-0">
+              <th
+                scope="row"
+                className="py-2 pr-4 text-left align-top font-medium text-muted-foreground"
+              >
+                {label}
+              </th>
+              <td className="py-2 pr-4 align-top text-foreground">{left}</td>
+              <td className="py-2 align-top text-foreground">{right}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function CandidateCard({
   candidate,
   rank,
@@ -206,15 +339,6 @@ function CandidateCard({
   candidate: SubstituteCandidate;
   rank: number;
 }) {
-  const aum =
-    candidate.aum != null
-      ? new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-          maximumFractionDigits: 0,
-        }).format(candidate.aum)
-      : "—";
-
   return (
     <div className="rounded-md border border-border p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -235,6 +359,13 @@ function CandidateCard({
         </div>
       </div>
 
+      <p className="mt-2 text-xs text-foreground">
+        <span className="font-medium text-muted-foreground">
+          Methodology basis:
+        </span>{" "}
+        {candidate.methodology_basis}
+      </p>
+
       <table className="mt-4 w-full text-sm">
         <tbody className="[&_td]:py-1 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium [&_th]:text-muted-foreground">
           <tr>
@@ -251,30 +382,27 @@ function CandidateCard({
           </tr>
           <tr>
             <th scope="row">AUM</th>
-            <td className="tabular-nums">{aum}</td>
-            <th scope="row">Fee (bps)</th>
             <td className="tabular-nums">
-              {candidate.management_fee_bps ?? "—"}
+              {formatAum(candidate.aum, candidate.aum_currency) ?? "—"}
             </td>
+            <th scope="row">Fee (bps)</th>
+            <td className="tabular-nums">{candidate.management_fee_bps ?? "—"}</td>
           </tr>
         </tbody>
       </table>
 
       <p className="mt-3 text-xs text-muted-foreground">
-        Methodology basis: {candidate.methodology_basis}
-      </p>
-      <p className="text-xs text-muted-foreground">
         Score completeness: {candidate.score_completeness_pct.toFixed(1)}%
       </p>
     </div>
   );
 }
 
-function RecommendedSubstitute({ isin }: { isin: string }) {
+function RecommendedSubstitute({ source }: { source: CompetitorEtf }) {
   const call = useServerFn(findSubstitutes);
   const { data, isPending, error } = useQuery({
-    queryKey: ["find-substitutes", isin],
-    queryFn: () => call({ data: { isin } }),
+    queryKey: ["find-substitutes", source.isin],
+    queryFn: () => call({ data: { isin: source.isin } }),
   });
 
   return (
@@ -316,7 +444,7 @@ function RecommendedSubstitute({ isin }: { isin: string }) {
         )}
 
         {data?.type === "ok" && (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className="rounded border border-border px-2 py-1">
                 Score completeness: {data.score_completeness_pct.toFixed(1)}%
@@ -333,6 +461,23 @@ function RecommendedSubstitute({ isin }: { isin: string }) {
 
             {data.candidates[0] && (
               <CandidateCard candidate={data.candidates[0]} rank={1} />
+            )}
+
+            {data.candidates[0] && (
+              <section className="space-y-3">
+                <h2 className="text-sm font-semibold text-foreground">
+                  Side-by-side comparison
+                </h2>
+                <ComparisonTable source={source} candidate={data.candidates[0]} />
+                <div
+                  role="note"
+                  className="rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground"
+                >
+                  This ranking uses {data.score_completeness_pct.toFixed(0)}% of the
+                  intended matching model — index-holdings comparison requires data
+                  not yet available in this database.
+                </div>
+              </section>
             )}
 
             {data.candidates.length > 1 && (
@@ -354,20 +499,28 @@ function RecommendedSubstitute({ isin }: { isin: string }) {
               </Collapsible>
             )}
 
-            <div>
-              <p className="text-xs font-medium text-muted-foreground">
-                Eligibility checks not enforced
-              </p>
-              <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
-                {data.eligibility_checks_skipped.map((check) => (
-                  <li key={check}>{check}</li>
-                ))}
-              </ul>
-            </div>
+            {data.eligibility_checks_skipped.length > 0 && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs">
+                    What wasn&apos;t checked (
+                    {data.eligibility_checks_skipped.length})
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <ul className="mt-2 list-inside list-disc text-xs text-muted-foreground">
+                    {data.eligibility_checks_skipped.map((check) => (
+                      <li key={check}>{SKIPPED_CHECK_LABELS[check] ?? check}</li>
+                    ))}
+                  </ul>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         )}
       </CardContent>
     </Card>
   );
 }
+
 
