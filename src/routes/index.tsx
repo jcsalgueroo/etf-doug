@@ -1,4 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
@@ -10,9 +12,19 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { searchEtf, type SearchEtfResult, type CompetitorEtf } from "@/lib/etf.functions";
+import {
+  findSubstitutes,
+  type SubstituteCandidate,
+} from "@/lib/substitutes.functions";
+
 
 interface SearchParams {
   ticker?: string;
@@ -125,10 +137,11 @@ function SearchResult({ result }: { result: SearchEtfResult }) {
   return (
     <div className="space-y-6">
       <ProfileCard etf={result.etf} />
-      <RecommendedSubstitute />
+      <RecommendedSubstitute isin={result.etf.isin} />
     </div>
   );
 }
+
 
 function ProfileCard({ etf }: { etf: CompetitorEtf }) {
   const formattedAum =
@@ -182,24 +195,179 @@ function ProfileCard({ etf }: { etf: CompetitorEtf }) {
   );
 }
 
-function RecommendedSubstitute() {
+function pct(value: number) {
+  return value.toFixed(2);
+}
+
+function CandidateCard({
+  candidate,
+  rank,
+}: {
+  candidate: SubstituteCandidate;
+  rank: number;
+}) {
+  const aum =
+    candidate.aum != null
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(candidate.aum)
+      : "—";
+
+  return (
+    <div className="rounded-md border border-border p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-foreground">
+            #{rank} · {candidate.ticker} — {candidate.fund_name}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {candidate.isin} · {candidate.domicile || "—"} ·{" "}
+            {candidate.trading_currency || "—"}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-lg font-semibold tabular-nums text-foreground">
+            {candidate.match_score.toFixed(1)}
+          </p>
+          <p className="text-xs text-muted-foreground">match score</p>
+        </div>
+      </div>
+
+      <table className="mt-4 w-full text-sm">
+        <tbody className="[&_td]:py-1 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium [&_th]:text-muted-foreground">
+          <tr>
+            <th scope="row">Exposure</th>
+            <td className="tabular-nums">{pct(candidate.exposure_score)}</td>
+            <th scope="row">Wrapper</th>
+            <td className="tabular-nums">{pct(candidate.wrapper_score)}</td>
+          </tr>
+          <tr>
+            <th scope="row">Methodology</th>
+            <td className="tabular-nums">{pct(candidate.methodology_score)}</td>
+            <th scope="row">Implementation</th>
+            <td className="tabular-nums">{pct(candidate.implementation_score)}</td>
+          </tr>
+          <tr>
+            <th scope="row">AUM</th>
+            <td className="tabular-nums">{aum}</td>
+            <th scope="row">Fee (bps)</th>
+            <td className="tabular-nums">
+              {candidate.management_fee_bps ?? "—"}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p className="mt-3 text-xs text-muted-foreground">
+        Methodology basis: {candidate.methodology_basis}
+      </p>
+      <p className="text-xs text-muted-foreground">
+        Score completeness: {candidate.score_completeness_pct.toFixed(1)}%
+      </p>
+    </div>
+  );
+}
+
+function RecommendedSubstitute({ isin }: { isin: string }) {
+  const call = useServerFn(findSubstitutes);
+  const { data, isPending, error } = useQuery({
+    queryKey: ["find-substitutes", isin],
+    queryFn: () => call({ data: { isin } }),
+  });
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Recommended substitute</CardTitle>
-        <CardDescription>Scoring the best iShares alternative</CardDescription>
+        <CardDescription>Best iShares alternative by match score</CardDescription>
       </CardHeader>
       <CardContent>
-        {/*
-          TODO: Prompt 2 — wire the scoring server function here and replace
-          the skeleton below with the actual recommended substitute result.
-        */}
-        <div className="space-y-3">
-          <Skeleton className="h-4 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
+        {isPending && (
+          <div className="space-y-3">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        )}
+
+        {error && (
+          <Alert>
+            <AlertTitle>Scoring failed</AlertTitle>
+            <AlertDescription>{(error as Error).message}</AlertDescription>
+          </Alert>
+        )}
+
+        {data?.type === "source_not_found" && (
+          <Alert>
+            <AlertTitle>Source ETF not found</AlertTitle>
+            <AlertDescription>No record for ISIN {data.isin}.</AlertDescription>
+          </Alert>
+        )}
+
+        {data?.type === "no_eligible_candidates" && (
+          <Alert>
+            <AlertTitle>No eligible candidates</AlertTitle>
+            <AlertDescription>
+              {data.notes.length ? data.notes.join("; ") : "No iShares candidate passed eligibility."}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {data?.type === "ok" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="rounded border border-border px-2 py-1">
+                Score completeness: {data.score_completeness_pct.toFixed(1)}%
+              </span>
+              <span className="rounded border border-border px-2 py-1">
+                Eligibility: {data.eligibility_basis}
+              </span>
+              {data.notes.map((note) => (
+                <span key={note} className="rounded border border-border px-2 py-1">
+                  {note}
+                </span>
+              ))}
+            </div>
+
+            {data.candidates[0] && (
+              <CandidateCard candidate={data.candidates[0]} rank={1} />
+            )}
+
+            {data.candidates.length > 1 && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    Other options ({data.candidates.length - 1})
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-4 space-y-4">
+                  {data.candidates.slice(1).map((candidate, i) => (
+                    <CandidateCard
+                      key={candidate.isin}
+                      candidate={candidate}
+                      rank={i + 2}
+                    />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">
+                Eligibility checks not enforced
+              </p>
+              <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
+                {data.eligibility_checks_skipped.map((check) => (
+                  <li key={check}>{check}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
+

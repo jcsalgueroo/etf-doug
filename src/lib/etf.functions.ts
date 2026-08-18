@@ -6,6 +6,7 @@ import type { Database } from "@/integrations/supabase/types";
 type EtfSearchRow = Pick<
   Database["public"]["Tables"]["etf_master"]["Row"],
   | "id"
+  | "isin"
   | "ticker"
   | "fund_name"
   | "issuer"
@@ -48,7 +49,7 @@ export const searchEtf = createServerFn({ method: "GET" })
     const { data: rows, error } = await supabase
       .from("etf_master")
       .select(
-        "id, ticker, fund_name, issuer, domicile, trading_currency, asset_class, aum, aum_currency, aum_as_of_date, is_ishares",
+        "id, isin, ticker, fund_name, issuer, domicile, trading_currency, asset_class, aum, aum_currency, aum_as_of_date, is_ishares",
       )
       .ilike("ticker", normalizedTicker)
       .returns<EtfSearchRow[]>();
