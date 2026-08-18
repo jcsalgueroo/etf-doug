@@ -16,9 +16,14 @@ export const SCORE_COMPLETENESS_PCT = 80.0;
 export const AUM_FLOOR = 50_000_000;
 export const MANUAL_UNIVERSE = "ishares_candidate_manual_addition";
 
-// --- Sector keyword cascade (most specific first) ---
+// --- Sector keyword cascade (most specific first, plain substring matches) ---
 export const SECTOR_KEYWORDS: Array<[sector: string, keywords: string[]]> = [
   ["Regional banking", ["regional bank"]],
+  // Checked BEFORE Technology: AIQ/BAI abbreviate to "Tech" and never contain "technology".
+  [
+    "Artificial Intelligence / Robotics",
+    ["artificial intelligence", "artifical intelligence", "a.i.", "robotics", "automation & robotics"],
+  ],
   // " tech" (leading space, plain substring) avoids Biotech/FinTech without regex.
   ["Technology", ["technology", " tech"]],
   ["Industrial", ["industrial"]],
@@ -33,6 +38,7 @@ export const SECTOR_KEYWORDS: Array<[sector: string, keywords: string[]]> = [
   ["Energy", ["energy"]],
 ];
 
+// Step-2 single-country keywords (eligibility).
 export const COUNTRY_KEYWORDS: Array<[country: string, keywords: string[]]> = [
   ["Colombia", ["colombia", "colcap"]],
   ["Brazil", ["brazil", "brasil"]],
@@ -40,6 +46,22 @@ export const COUNTRY_KEYWORDS: Array<[country: string, keywords: string[]]> = [
   ["Chile", ["chile"]],
   ["Peru", ["peru"]],
   ["Argentina", ["argentina"]],
+];
+
+// Wider single-country/theme keyword list used only by the Exposure keyword term.
+export const COUNTRY_THEME_KEYWORDS: Array<[name: string, keywords: string[]]> = [
+  ...COUNTRY_KEYWORDS,
+  ["China", ["china", "csi 300"]],
+  ["Japan", ["japan"]],
+  ["Korea", ["korea"]],
+  ["Taiwan", ["taiwan"]],
+  ["India", ["india"]],
+  ["Germany", ["germany"]],
+  ["France", ["france"]],
+  ["Switzerland", ["switzerland", "swiss"]],
+  ["United Kingdom", ["united kingdom", "ftse 100"]],
+  ["Canada", ["canada"]],
+  ["Australia", ["australia"]],
 ];
 
 const lc = (v: string | null | undefined) => (v ?? "").toLowerCase();
@@ -61,6 +83,15 @@ export function detectCountry(text: string | null): [string, string[]] | null {
   }
   return null;
 }
+
+export function detectCountryTheme(text: string | null): [string, string[]] | null {
+  const name = lc(text);
+  for (const [country, keywords] of COUNTRY_THEME_KEYWORDS) {
+    if (has(name, keywords)) return [country, keywords];
+  }
+  return null;
+}
+
 
 // --- Methodology: base index family detection (most specific first) ---
 const FAMILY_PATTERNS: Array<[family: string, test: (n: string) => boolean]> = [
