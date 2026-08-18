@@ -204,8 +204,17 @@ export async function runPart2(
     "If the results do not actually contain holdings or breakdown data for a fund, say so explicitly",
     "for that fund instead of guessing.",
     "Output compact markdown with: **Holdings overlap**, **Notable exposure differences**,",
-    "**Sales talking points** (2-3 bullets, each grounded in what the results actually show).",
-    "Cite the source URL inline after any specific figure. Keep it under 300 words.",
+    "**Companies unique to the iShares fund**, **Sales talking points**.",
+    "The 'Companies unique to the iShares fund' section lists AT MOST THREE notable companies that",
+    "appear in the iShares candidate's holdings but not in the source ETF's holdings, each as a bullet:",
+    "company name, then a one-sentence profile of what the company does. Only list companies actually",
+    "visible in the search results for the iShares fund; if the results do not support this comparison,",
+    "say that explicitly instead of guessing.",
+    "The 'Sales talking points' section is 2-3 bullets that ALWAYS build the case IN FAVOUR of the",
+    "iShares candidate — frame every point as a reason to prefer the iShares fund (cost, scale,",
+    "exposure quality, structure, liquidity), while staying grounded in what the results actually show.",
+    "Never recommend the source ETF over the iShares fund.",
+    "Cite the source URL inline after any specific figure. Keep it under 350 words.",
   ].join(" ");
 
   const user = JSON.stringify({
