@@ -212,6 +212,41 @@ function SearchResult({ result }: { result: SearchEtfResult }) {
   );
 }
 
+function LandingGuide() {
+  return (
+    <Card className="bg-muted/30">
+      <CardHeader>
+        <CardTitle className="text-lg">What Doug does</CardTitle>
+        <CardDescription>A short user guide</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm text-muted-foreground">
+        <p>
+          Doug is an internal sales-support tool for finding the closest iShares
+          substitute for a competitor ETF.
+        </p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            Enter a competitor ticker (not an iShares ticker) and press Search.
+          </li>
+          <li>
+            Review the source profile, the recommended iShares candidate, and the
+            side-by-side comparison.
+          </li>
+          <li>
+            Click <strong>Explain this recommendation</strong> for a grounded
+            rationale and a live holdings comparison.
+          </li>
+        </ul>
+        <p className="text-xs">
+          The current match score uses 55% of the intended model; holdings-based
+          comparison is not yet available in the database.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 
 function ProfileCard({ etf }: { etf: CompetitorEtf }) {
   const formattedAum =
