@@ -276,6 +276,9 @@ export function impliedMarket(row: EtfRow): string | null {
   return null;
 }
 
+const GLOBAL_HINTS = ["global", "world", "acwi", "all country world", "international"];
+
+
 export function impliedRegion(row: EtfRow): string | null {
   const explicit = lc(row.geographic_exposure).trim();
   if (explicit) {
@@ -287,6 +290,9 @@ export function impliedRegion(row: EtfRow): string | null {
   for (const [region, keywords] of REGION_KEYWORDS) {
     if (has(n, keywords)) return region;
   }
+  // "Global Equities" implies the SPECIFIC region string "Global" — not the
+  // region-agnostic (None) case. Only the EM categories are truly agnostic.
+  if (!has(n, EMERGING_HINTS) && has(n, GLOBAL_HINTS)) return "Global";
   return null;
 }
 
