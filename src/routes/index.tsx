@@ -68,20 +68,40 @@ function Index() {
   const navigate = useNavigate({ from: "/" });
   const initialResult = Route.useLoaderData();
   const [inputValue, setInputValue] = useState(search.ticker ?? "");
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [debounced, setDebounced] = useState("");
 
   useEffect(() => {
     setInputValue(search.ticker ?? "");
   }, [search.ticker]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const ticker = (formData.get("ticker") as string | null)?.trim() ?? "";
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(inputValue.trim()), 180);
+    return () => clearTimeout(t);
+  }, [inputValue]);
+
+  const suggest = useServerFn(suggestTickers);
+  const { data: suggestions = [] } = useQuery({
+    queryKey: ["ticker-suggestions", debounced.toUpperCase()],
+    queryFn: () => suggest({ data: { query: debounced } }),
+    enabled: debounced.length >= 1,
+    staleTime: 60_000,
+  });
+
+  const go = (ticker: string) => {
+    const value = ticker.trim();
+    setSuggestOpen(false);
     navigate({
       to: "/",
-      search: (prev) => (ticker ? { ...prev, ticker } : { ...prev }),
+      search: (prev) => (value ? { ...prev, ticker: value } : { ...prev }),
     });
   };
+
+  const showSuggestions =
+    suggestOpen &&
+    suggestions.length > 0 &&
+    debounced.length >= 1 &&
+    debounced.toUpperCase() !== (search.ticker ?? "").trim().toUpperCase();
 
   return (
     <div className="min-h-screen bg-background px-4 py-12">
@@ -93,16 +113,59 @@ function Index() {
           <p className="text-muted-foreground">Internal ETF substitution tool</p>
         </header>
 
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Input
-            type="text"
-            name="ticker"
-            placeholder="Enter competitor ticker (e.g. VTI)"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            className="flex-1"
-            aria-label="Ticker"
-          />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            go(inputValue);
+          }}
+          className="flex gap-2"
+        >
+          <div className="relative flex-1">
+            <Input
+              type="text"
+              name="ticker"
+              placeholder="Enter competitor ticker (e.g. VTI)"
+              value={inputValue}
+              autoComplete="off"
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                setSuggestOpen(true);
+              }}
+              onFocus={() => setSuggestOpen(true)}
+              onBlur={() => setTimeout(() => setSuggestOpen(false), 120)}
+              className="w-full"
+              aria-label="Ticker"
+              role="combobox"
+              aria-expanded={showSuggestions}
+            />
+            {showSuggestions && (
+              <ul
+                role="listbox"
+                className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-md"
+              >
+                {suggestions.map((s) => (
+                  <li key={s.ticker}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={false}
+                      className="flex w-full items-baseline gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setInputValue(s.ticker);
+                        go(s.ticker);
+                      }}
+                    >
+                      <span className="font-medium text-foreground">{s.ticker}</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {s.fund_name ?? s.issuer ?? ""}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <Button type="submit">Search</Button>
         </form>
 
