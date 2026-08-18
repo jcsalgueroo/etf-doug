@@ -229,8 +229,31 @@ export function wrapperScore(source: EtfRow, candidate: EtfRow): number {
   return 0.7 * domicileScore + 0.3 * currencyScore;
 }
 
-// --- Exposure score ---
+// --- Exposure score (Prompt 2 spec) ---
 const REGION_AGNOSTIC = ["global", "world", "emerging markets", "developed markets", "acwi", "international"];
+
+// Implied geographic_exposure for a source category (source rows carry no
+// geographic_exposure of their own), expressed in the candidate vocabulary.
+// Latin America must be checked before North America ("Latin America").
+const REGION_KEYWORDS: Array<[region: string, keywords: string[]]> = [
+  [
+    "Latin America",
+    ["latin america", "latam", "colombia", "colcap", "brazil", "brasil", "mexico", "chile", "peru", "argentina"],
+  ],
+  [
+    "Asia Pacific",
+    ["china", "csi 300", "japan", "korea", "taiwan", "india", "asia", "pacific", "australia", "hong kong", "singapore"],
+  ],
+  [
+    "Europe",
+    ["europe", "euro stoxx", "emu", "germany", "france", "switzerland", "swiss", "united kingdom", "ftse 100", "spain", "italy", "netherlands"],
+  ],
+  [
+    "North America",
+    ["u.s.", "us ", "usa", "united states", "america", "s&p 500", "s&p 400", "russell", "nasdaq", "canada"],
+  ],
+  ["Middle East and Africa", ["middle east", "africa", "saudi", "kuwait", "qatar"]],
+];
 
 // Implied market_exposure for a source category, when its own field is empty.
 const EMERGING_HINTS = [
@@ -253,37 +276,46 @@ export function impliedMarket(row: EtfRow): string | null {
   return null;
 }
 
+export function impliedRegion(row: EtfRow): string | null {
+  const explicit = lc(row.geographic_exposure).trim();
+  if (explicit) {
+    const agnostic = REGION_AGNOSTIC.some((r) => explicit === r || explicit.includes(r));
+    if (!agnostic) return explicit;
+    return null;
+  }
+  const n = ` ${lc(row.fund_name)} `;
+  for (const [region, keywords] of REGION_KEYWORDS) {
+    if (has(n, keywords)) return region;
+  }
+  return null;
+}
+
 export function exposureScore(source: EtfRow, candidate: EtfRow): number {
   let score = 0.4;
 
-  const srcGeo = lc(source.geographic_exposure).trim();
-  const candGeo = lc(candidate.geographic_exposure).trim();
-  const regionAgnostic = !srcGeo || REGION_AGNOSTIC.some((r) => srcGeo === r || srcGeo.includes(r));
+  const region = impliedRegion(source);
+  const srcMarket = impliedMarket(source);
 
-  if (regionAgnostic) {
-    // Region-agnostic credit only applies when the category has no implied market
-    // (e.g. "Global Equities"), or when the candidate is in that same market.
-    const srcMarket = impliedMarket(source);
-    const candMarket = impliedMarket(candidate);
-    if (!srcMarket || srcMarket === candMarket) {
-      score += 0.2;
+  if (region) {
+    const candGeo = lc(candidate.geographic_exposure).trim();
+    if (candGeo && candGeo === lc(region)) {
+      score += 0.35;
+    } else if (lc(region).includes("latin america") && detectCountry(candidate.fund_name)) {
+      // A single-country LatAm fund is at least as regionally precise as the broad bucket.
+      score += 0.35;
     }
-  } else if (srcGeo && candGeo && srcGeo === candGeo) {
-    score += 0.35;
-  } else if (srcGeo.includes("latin america") && detectCountry(candidate.fund_name)) {
-    // A single-country LatAm fund is at least as regionally precise as the broad bucket.
-    score += 0.35;
+  } else {
+    // Region-agnostic: flat +0.2 only when the category has no implied market
+    // (e.g. Global Equities), or when the candidate's market matches it.
+    const candMarket = lc(candidate.market_exposure).trim() || impliedMarket(candidate);
+    if (!srcMarket || srcMarket === candMarket) score += 0.2;
   }
 
-  if (
-    source.market_exposure &&
-    candidate.market_exposure &&
-    lc(source.market_exposure) === lc(candidate.market_exposure)
-  ) {
+  if (srcMarket && candidate.market_exposure && srcMarket === lc(candidate.market_exposure).trim()) {
     score += 0.15;
   }
 
-  const implied = detectCountry(source.fund_name) ?? detectSector(source.fund_name);
+  const implied = detectCountryTheme(source.fund_name) ?? detectSector(source.fund_name);
   if (implied) {
     if (has(lc(candidate.fund_name), implied[1])) score += 0.1;
   } else {
@@ -292,6 +324,7 @@ export function exposureScore(source: EtfRow, candidate: EtfRow): number {
 
   return Math.min(1, score);
 }
+
 
 // --- Result types ---
 export interface SubstituteCandidate {
