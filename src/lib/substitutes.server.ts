@@ -19,7 +19,8 @@ export const MANUAL_UNIVERSE = "ishares_candidate_manual_addition";
 // --- Sector keyword cascade (most specific first) ---
 export const SECTOR_KEYWORDS: Array<[sector: string, keywords: string[]]> = [
   ["Regional banking", ["regional bank"]],
-  ["Technology", ["technology"]],
+  // " tech" (leading space, plain substring) avoids Biotech/FinTech without regex.
+  ["Technology", ["technology", " tech"]],
   ["Industrial", ["industrial"]],
   ["Health Care", ["healthcare", "health care"]],
   ["Communication Services", ["telecommunications", "communication"]],
@@ -208,7 +209,13 @@ export function exposureScore(source: EtfRow, candidate: EtfRow): number {
   const regionAgnostic = !srcGeo || REGION_AGNOSTIC.some((r) => srcGeo === r || srcGeo.includes(r));
 
   if (regionAgnostic) {
-    score += 0.2;
+    // Region-agnostic credit only applies when the source has no implied market
+    // (e.g. "Global"), or when the candidate is in that same implied market.
+    const srcMarket = lc(source.market_exposure).trim();
+    const candMarket = lc(candidate.market_exposure).trim();
+    if (!srcMarket || srcMarket === candMarket) {
+      score += 0.2;
+    }
   } else if (srcGeo && candGeo && srcGeo === candGeo) {
     score += 0.35;
   } else if (srcGeo.includes("latin america") && detectCountry(candidate.fund_name)) {
