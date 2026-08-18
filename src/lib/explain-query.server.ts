@@ -82,7 +82,9 @@ export async function runExplainRecommendation(rawIsin: string): Promise<Explain
       part2_error: explain.live_error,
       part2_sources: explain.live_sources,
       part2_trust_tier: "live_web_research_not_approved_data",
-    } as unknown as Database["public"]["Tables"]["explanation_requests"]["Insert"]["response"],
+    } as unknown as NonNullable<
+      Database["public"]["Tables"]["explanation_requests"]["Insert"]["response"]
+    >,
   });
   if (logError) console.error(`[explain] audit log insert failed: ${logError.message}`);
 
