@@ -201,6 +201,27 @@ export function wrapperScore(source: EtfRow, candidate: EtfRow): number {
 // --- Exposure score ---
 const REGION_AGNOSTIC = ["global", "world", "emerging markets", "developed markets", "acwi", "international"];
 
+// Implied market_exposure for a source category, when its own field is empty.
+const EMERGING_HINTS = [
+  "emerging", " em ", "frontier", "china", "india", "brazil", "brasil", "mexico",
+  "colombia", "colcap", "chile", "peru", "argentina", "latin america", "korea",
+  "taiwan", "south africa", "turkey", "indonesia", "thailand", "malaysia", "vietnam",
+];
+const DEVELOPED_HINTS = [
+  "developed", "s&p 500", "russell", "nasdaq", "u.s.", "us ", "usa", "japan",
+  "europe", "euro stoxx", "ftse 100", "germany", "france", "switzerland", "canada",
+  "australia", "united kingdom",
+];
+
+export function impliedMarket(row: EtfRow): string | null {
+  const explicit = lc(row.market_exposure).trim();
+  if (explicit) return explicit;
+  const n = ` ${lc(row.fund_name)} `;
+  if (has(n, EMERGING_HINTS)) return "emerging";
+  if (has(n, DEVELOPED_HINTS)) return "developed";
+  return null;
+}
+
 export function exposureScore(source: EtfRow, candidate: EtfRow): number {
   let score = 0.4;
 
@@ -209,10 +230,10 @@ export function exposureScore(source: EtfRow, candidate: EtfRow): number {
   const regionAgnostic = !srcGeo || REGION_AGNOSTIC.some((r) => srcGeo === r || srcGeo.includes(r));
 
   if (regionAgnostic) {
-    // Region-agnostic credit only applies when the source has no implied market
-    // (e.g. "Global"), or when the candidate is in that same implied market.
-    const srcMarket = lc(source.market_exposure).trim();
-    const candMarket = lc(candidate.market_exposure).trim();
+    // Region-agnostic credit only applies when the category has no implied market
+    // (e.g. "Global Equities"), or when the candidate is in that same market.
+    const srcMarket = impliedMarket(source);
+    const candMarket = impliedMarket(candidate);
     if (!srcMarket || srcMarket === candMarket) {
       score += 0.2;
     }
