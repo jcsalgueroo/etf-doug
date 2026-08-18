@@ -137,7 +137,7 @@ function SearchResult({ result }: { result: SearchEtfResult }) {
   return (
     <div className="space-y-6">
       <ProfileCard etf={result.etf} />
-      <RecommendedSubstitute isin={result.etf.isin} />
+      <RecommendedSubstitute source={result.etf} />
     </div>
   );
 }
