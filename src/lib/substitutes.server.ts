@@ -239,8 +239,13 @@ export interface SubstituteCandidate {
   ticker: string;
   fund_name: string;
   isin: string;
+  issuer: string | null;
   domicile: string | null;
+  legal_wrapper: string | null;
+  asset_class: string | null;
   trading_currency: string | null;
+  aum_currency: string | null;
+  aum_as_of_date: string | null;
   aum: number | null;
   management_fee_bps: number | null;
   exposure_score: number;
@@ -314,8 +319,13 @@ export function scoreCandidates(
       ticker: candidate.ticker,
       fund_name: candidate.fund_name,
       isin: candidate.isin,
+      issuer: candidate.issuer,
       domicile: candidate.domicile,
+      legal_wrapper: candidate.legal_wrapper,
+      asset_class: candidate.asset_class,
       trading_currency: candidate.trading_currency,
+      aum_currency: candidate.aum_currency,
+      aum_as_of_date: candidate.aum_as_of_date,
       aum: candidate.aum,
       management_fee_bps: candidate.management_fee_bps,
       exposure_score: exposure,
