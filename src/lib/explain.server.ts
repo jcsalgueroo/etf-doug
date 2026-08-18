@@ -160,10 +160,10 @@ async function firecrawlSearch(query: string) {
     throw new Error(`Firecrawl search failed [${res.status}]: ${body}`);
   }
 
-  const json = (await res.json()) as {
-    data?: Array<{ url?: string; title?: string; description?: string; markdown?: string }>;
-  };
-  const rows = Array.isArray(json.data) ? json.data : [];
+  type Hit = { url?: string; title?: string; description?: string; markdown?: string };
+  const json = (await res.json()) as { data?: Hit[] | { web?: Hit[] } };
+  // Firecrawl v2 returns either data[] or data.web[] depending on search mode.
+  const rows: Hit[] = Array.isArray(json.data) ? json.data : (json.data?.web ?? []);
   return rows
     .filter((r) => r.url)
     .map((r) => ({
