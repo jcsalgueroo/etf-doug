@@ -19,7 +19,13 @@ import {
 } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { searchEtf, type SearchEtfResult, type CompetitorEtf } from "@/lib/etf.functions";
+import {
+  searchEtf,
+  suggestTickers,
+  type SearchEtfResult,
+  type CompetitorEtf,
+  type TickerSuggestion,
+} from "@/lib/etf.functions";
 import {
   findSubstitutes,
   type SubstituteCandidate,
