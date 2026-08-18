@@ -38,10 +38,14 @@ export function PasswordGate({ children }: { children: ReactNode }) {
     try {
       const { ok } = await verify({ data: { password } });
       if (ok) {
+        // Always drop back to a clean landing page on unlock so the previous
+        // query never flashes.
+        await navigate({ to: "/", search: {}, replace: true });
         setUnlocked(true);
         return;
       }
       const next = attempts + 1;
+
       setAttempts(next);
       setPassword("");
       setError(
