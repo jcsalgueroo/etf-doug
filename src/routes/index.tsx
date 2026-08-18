@@ -24,6 +24,7 @@ import {
   findSubstitutes,
   type SubstituteCandidate,
 } from "@/lib/substitutes.functions";
+import { explainRecommendation } from "@/lib/explain.functions";
 
 
 interface SearchParams {
