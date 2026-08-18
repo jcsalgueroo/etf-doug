@@ -25,9 +25,11 @@ export function PasswordGate({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState(false);
 
   const verify = useServerFn(verifySitePassword);
+  const navigate = useNavigate({ from: "/" });
   const lockedOut = attempts >= MAX_ATTEMPTS;
 
   if (unlocked) return <>{children}</>;
+
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
