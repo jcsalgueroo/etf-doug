@@ -176,8 +176,13 @@ function Index() {
         </form>
 
         <div className="mt-8">
-          {initialResult && <SearchResult result={initialResult} />}
+          {initialResult ? (
+            <SearchResult result={initialResult} />
+          ) : (
+            <LandingGuide />
+          )}
         </div>
+
       </div>
     </div>
   );
