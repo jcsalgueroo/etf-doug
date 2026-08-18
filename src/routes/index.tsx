@@ -1,4 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { Input } from "@/components/ui/input";
@@ -10,9 +12,19 @@ import {
   CardDescription,
   CardContent,
 } from "@/components/ui/card";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { searchEtf, type SearchEtfResult, type CompetitorEtf } from "@/lib/etf.functions";
+import {
+  findSubstitutes,
+  type SubstituteCandidate,
+} from "@/lib/substitutes.functions";
+
 
 interface SearchParams {
   ticker?: string;
