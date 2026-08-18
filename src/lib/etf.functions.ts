@@ -73,3 +73,40 @@ export const searchEtf = createServerFn({ method: "GET" })
     const { is_ishares: _, ...etf } = competitor;
     return { type: "competitor", etf };
   });
+
+export type TickerSuggestion = {
+  ticker: string;
+  fund_name: string | null;
+  issuer: string | null;
+};
+
+export const suggestTickers = createServerFn({ method: "GET" })
+  .validator((data) => z.object({ query: z.string() }).parse(data))
+  .handler(async ({ data }): Promise<TickerSuggestion[]> => {
+    const q = data.query.trim().toUpperCase();
+    if (q.length < 1) return [];
+
+    const supabase = createClient<Database>(
+      process.env["SUPABASE_URL"]!,
+      process.env["SUPABASE_PUBLISHABLE_KEY"]!,
+      {
+        auth: {
+          storage: undefined,
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
+
+    const { data: rows, error } = await supabase
+      .from("etf_master")
+      .select("ticker, fund_name, issuer")
+      .eq("is_ishares", false)
+      .ilike("ticker", `${q}%`)
+      .order("ticker")
+      .limit(8)
+      .returns<TickerSuggestion[]>();
+
+    if (error) throw new Error(`Failed to load ticker suggestions: ${error.message}`);
+    return rows ?? [];
+  });
